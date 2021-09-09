@@ -60,50 +60,54 @@ tcpecho_thread(void *arg)
 #if LWIP_IPV6
   conn = netconn_new(NETCONN_TCP_IPV6);
   netconn_bind(conn, IP6_ADDR_ANY, 7);
-#else /* LWIP_IPV6 */																// CLIENT
-  conn = netconn_new(NETCONN_TCP);													// socket()
-  //netconn_bind(conn, IP_ADDR_ANY, 7);										   		Delete bind()
+#else /* LWIP_IPV6 */														// CLIENT
+  conn = netconn_new(NETCONN_TCP);											// socket()
+  //netconn_bind(conn, IP_ADDR_ANY, 7);										Delete bind()
 #endif /* LWIP_IPV6 */
   LWIP_ERROR("tcpecho: invalid conn", (conn != NULL), return;);
 
   /* Tell connection to go into listening mode. */
-  //netconn_listen(conn);													   		Delete listen()
+  //netconn_listen(conn);													Delete listen()
 
   while (1) {
 
-    /* Grab new connection. */
-    //err = netconn_accept(conn, &newconn);											Delete accept()
-    /*printf("accepted new connection %p\n", newconn);*/
-    /* Process the new connection. */
-//    if (err == ERR_OK) {
+	  /* Grab new connection. */
+	  //err = netconn_accept(conn, &newconn);								Delete accept()
+	  /*printf("accepted new connection %p\n", newconn);*/
 
-	  err = netconn_connect(conn, &server_ipaddr, 7);	  	  	  	  	  	  	  	// connect()
+	  err = netconn_connect(conn, &server_ipaddr, 7);	  	  	  	  	  	// connect()
 
-      struct netbuf *buf;
-      void *data = 'a';
-      u16_t len = 1;																// Specifies length
+	  /* Process the new connection. */
+	  if (err == ERR_OK) {
+		  struct netbuf *buf;
+		  void *Tx_data = "Hello Server ";									// Initialize Request
+		  u16_t Tx_len = strlen(Tx_data);									// Specifies length
+		  void *Rx_data;
+		  u16_t Rx_len;
 
-      err = netconn_write(conn, data, len, NETCONN_COPY);							// write()
+		  err = netconn_write(conn, Tx_data, Tx_len, NETCONN_COPY);			// write()
 
-      while ((err = netconn_recv(conn, &buf)) == ERR_OK) {
-        /*printf("Recved\n");*/
-        do {
-
-             netbuf_data(buf, &data, &len);											// read()
+		  while ((err = netconn_recv(conn, &buf)) == ERR_OK) {
+			  /*printf("Recved\n");*/
+			  do {
+				  netbuf_data(buf, &Rx_data, &Rx_len);						// read()
 
 #if 0
-            if (err != ERR_OK) {
-              printf("tcpecho: netconn_write: error \"%s\"\n", lwip_strerr(err));
-            }
+				  if (err != ERR_OK) {
+					  printf("tcpecho: netconn_write: error \"%s\"\n", lwip_strerr(err));
+				  }
 #endif
-        } while (netbuf_next(buf) >= 0);
-        netbuf_delete(buf);
-      }
-      /*printf("Got EOF, looping\n");*/
-      /* Close connection and discard connection identifier. */
-      netconn_close(conn);														// close()
-      netconn_delete(conn);
-//    } if
+			  } while (netbuf_next(buf) >= 0);
+			  netbuf_delete(buf);
+
+			  err = netconn_write(conn, Tx_data, Tx_len, NETCONN_COPY);		// write() again for request
+
+		  }
+		  /*printf("Got EOF, looping\n");*/
+		  /* Close connection and discard connection identifier. */
+		  netconn_close(conn);												// close()
+		  netconn_delete(conn);
+	  }
   }
 }
 /*-----------------------------------------------------------------------------------*/

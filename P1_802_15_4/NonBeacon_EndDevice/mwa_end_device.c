@@ -220,6 +220,8 @@ void main_task(uint32_t param)
         Mac_RegisterSapHandlers( MCPS_NWK_SapHandler, MLME_NWK_SapHandler, macInstance );
 
         App_init();
+        MyTask_Init(); /* INIT MY NEW TASK */
+
 
         /* Create application task */
         mAppTaskHandler = OSA_TaskCreate(OSA_TASK(AppThread), NULL);
@@ -461,8 +463,15 @@ void AppThread(osaTaskParam_t argument)
             
         case stateScanActiveStart:
             /* Start the Active scan, and goto wait for confirm state. */
-            Serial_Print(interfaceId, "\n\rStart scanning for a PAN coordinator\n\r", gAllowToBlock_d);
             
+
+        	Serial_Print(interfaceId, "\n\rStart scanning for a PAN coordinator\n\r", gAllowToBlock_d);
+
+        	MyTaskTimer_Start(); /*Start LED flashing with your task*/
+
+
+
+
             rc = App_StartScan(gScanModeActive_c);
             if(rc == errorNoError)
             {
@@ -541,7 +550,12 @@ void AppThread(osaTaskParam_t argument)
                         rc = App_HandleAssociateConfirm(pMsgIn);
                         if (rc == errorNoError)
                         { 
-                            Serial_Print(interfaceId, "Successfully associated with the coordinator.\n\r", gAllowToBlock_d);
+
+                        	MyTaskTimer_Stop();   /* STOP Timer from MY NEW TASK*/
+
+
+
+                        	Serial_Print(interfaceId, "Successfully associated with the coordinator.\n\r", gAllowToBlock_d);
                             Serial_Print(interfaceId, "We were assigned the short address 0x", gAllowToBlock_d);
                             Serial_PrintHex(interfaceId, maMyAddress, mAddrMode == gAddrModeShortAddress_c ? 2 : 8, gPrtHexNoFormat_c);
                             Serial_Print(interfaceId, "\n\r\n\rReady to send and receive data over the UART.\n\r\n\r", gAllowToBlock_d);                     

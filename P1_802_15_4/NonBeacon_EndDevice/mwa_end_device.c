@@ -799,7 +799,8 @@ static uint8_t App_HandleScanActiveConfirm(nwkMessage_t *pMsg)
         {        
           
           /* Find the nearest coordinator using the link quality measure. */
-          if(pPanDesc->linkQuality > bestLinkQuality)
+//        if(pPanDesc->linkQuality > bestLinkQuality)
+          if(pPanDesc->logicalChannel == 12)
           {
             /* Save the information of the coordinator candidate. If we
                find a better candiate, the information will be replaced. */

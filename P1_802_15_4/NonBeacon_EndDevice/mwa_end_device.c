@@ -221,6 +221,18 @@ void main_task(uint32_t param)
 
         App_init();
         MyTask_Init(); /* INIT MY NEW TASK */
+//        MyTask_Init1(); /* INIT MY NEW TASK */
+		TurnOffLeds();
+		Led1On();		// LED
+        TurnOffLeds();
+        Led2On();		// LED ROJO
+        TurnOffLeds();
+        Led3On();		// LED VERDE
+        TurnOffLeds();
+        Led4On();		// LED AZUL
+        TurnOffLeds();
+        TurnOnLeds();	// LED BLANCO
+		TurnOffLeds();
 
 
         /* Create application task */
@@ -552,8 +564,7 @@ void AppThread(osaTaskParam_t argument)
                         { 
 
                         	MyTaskTimer_Stop();   /* STOP Timer from MY NEW TASK*/
-
-
+//                        	MyTaskTimer_Start1();	/*Start LED with logic counter value each 3 seconds*/
 
                         	Serial_Print(interfaceId, "Successfully associated with the coordinator.\n\r", gAllowToBlock_d);
                             Serial_Print(interfaceId, "We were assigned the short address 0x", gAllowToBlock_d);
@@ -1197,7 +1208,13 @@ static void App_HandleKeys
     case gKBD_EventLongSW3_c:
     case gKBD_EventLongSW4_c:
     case gKBD_EventSW1_c:
+    	// Crear funcion que llame a esta funcion
+//    	OSA_EventSet(mMyEvents1, gTaskEvent4_c);	// EQ2 - SW3 presionado
+//    	break;
     case gKBD_EventSW2_c:
+    	// Crear funcion que llame a esta funcion
+//    	OSA_EventSet(mMyEvents1, gTaskEvent5_c);	// EQ2 - SW4 presionado
+//    	break;
     case gKBD_EventSW3_c:
     case gKBD_EventSW4_c:
 #if gTsiSupported_d

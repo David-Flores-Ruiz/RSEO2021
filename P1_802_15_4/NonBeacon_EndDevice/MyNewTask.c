@@ -20,7 +20,7 @@ osaTaskId_t gMyTaskHandler_ID;
 osaTaskId_t gMyTaskHandler_ID1;
 /* Local variable to store the current state of the LEDs */
 static uint8_t ledsState = 0;
-static uint8_t g_Counter = 0;	// EQ2
+static uint8_t g_Counter = 3;	// EQ2
 static uint8_t msg[] = { 'C','o','u','n','t','e','r',':','x','\0'};		// EQ2
 //static uint8_t msg[] = "Counter: #";
 static instanceId_t   macInstance;
@@ -107,30 +107,25 @@ void My_Task1(osaTaskParam_t argument)
 myTaskTimerCallback1 function */
 					NULL
 			);
-			TurnOffLeds(); /* Ensure all LEDs are turned off */
+//			TurnOffLeds(); /* Ensure all LEDs are turned off */
 			break;
 
 		case gTaskEvent2_c: /* Event called from myTaskTimerCallback1 */
-			TurnOffLeds();
-			Led1On();		// LED
-            TurnOffLeds();
-            Led2On();		// LED ROJO
-            TurnOffLeds();
-            Led3On();		// LED AZUL
-            TurnOffLeds();
-            Led4On();		// LED VERDE
-            TurnOffLeds();
-            TurnOnLeds();	// LED BLANCO
+			g_Counter++;	// EQ2 - Cada 3s incrementa el contador
+			if(g_Counter > 3)
+			{
+				g_Counter = 0;	// Reiniciamos el contador
+			}
 			TurnOffLeds();
 			switch (g_Counter) {
 				case 0:
 		            Led2On();		// LED ROJO
 					break;
 				case 1:
-		            Led4On();		// LED VERDE
+					Led3On();		// LED VERDE
 					break;
 				case 2:
-		            Led3On();		// LED AZUL
+					Led4On();		// LED AZUL
 					break;
 				case 3:
 					TurnOnLeds();	// LED BLANCO
@@ -138,86 +133,78 @@ myTaskTimerCallback1 function */
 				default:
 					break;
 			}
-			// EQ2 - Envia paquete en el aire  de tipo "Counter:x"
-			msg[8] = '0' + g_Counter;
-			mpPacket = MSG_Alloc(sizeof(nwkToMcpsMessage_t) + 1);
-
-			if(mpPacket != NULL)
-			{
-				mpPacket->msgType = gMcpsDataReq_c;
-				mpPacket->msgData.dataReq.pMsdu = (uint8_t*)&msg;
-
-		        mpPacket->msgData.dataReq.dstAddrMode = gAddrModeShortAddress_c;
-		        mpPacket->msgData.dataReq.srcAddrMode = gAddrModeShortAddress_c;
-		        mpPacket->msgData.dataReq.msduLength = sizeof(msg);
-
-//		        FLib_MemCpy(&mpPacket->msgData.dataReq.dstAddr, &mCoordInfo.coordAddress, 8);
-//		        FLib_MemCpy(&mpPacket->msgData.dataReq.srcAddr, &maMyAddress, 8);
-//		        FLib_MemCpy(&mpPacket->msgData.dataReq.dstPanId, &mCoordInfo.coordPanId, 2);
-//		        FLib_MemCpy(&mpPacket->msgData.dataReq.srcPanId, &mCoordInfo.coordPanId, 2);
+//			// EQ2 - Envia paquete en el aire  de tipo "Counter:x"
+//			msg[8] = '0' + g_Counter;
+//			mpPacket = MSG_Alloc(sizeof(nwkToMcpsMessage_t) + 1);
 //
-//		        FLib_MemCpy(&mpPacket->msgData.dataReq.dstAddr, (void*)&mDeviceShortAddress, 2);
-//		        FLib_MemCpy(&mpPacket->msgData.dataReq.srcAddr, (void*)&mShortAddress, 2);
-//		        FLib_MemCpy(&mpPacket->msgData.dataReq.dstPanId, (void*)&mPanId, 2);
-//		        FLib_MemCpy(&mpPacket->msgData.dataReq.srcPanId, (void*)&mPanId, 2);
-
-//				mpPacket->msgData.dataReq.dstAddr = 0x0000;
-//				mpPacket->msgData.dataReq.srcAddr = 0x0001;
-//				mpPacket->msgData.dataReq.dstPanId = 0x0808;
-//				mpPacket->msgData.dataReq.srcPanId = 0x0808;
-
-//				mpPacket->msgData.dataReq.dstAddrMode = gAddrModeShortAddress_c;
-//				mpPacket->msgData.dataReq.srcAddrMode = gAddrModeShortAddress_c;
-//				mpPacket->msgData.dataReq.msduLength = sizeof(msg);
-
-		        mpPacket->msgData.dataReq.txOptions = gMacTxOptionsAck_c;
-		        mpPacket->msgData.dataReq.txOptions |= gMacTxOptionIndirect_c;
-
-				mpPacket->msgData.dataReq.msduHandle = mMsduHandle++;
-				mpPacket->msgData.dataReq.securityLevel = gMacSecurityNone_c;
-
-		        /* Bind to MAC layer */
-		        macInstance = BindToMAC( (instanceId_t)0 );
-
-		        /* Send the Data to the MCPS */
-		        (void)NWK_MCPS_SapHandler(mpPacket, macInstance);
-
-		        /* If the data wasn't send over the air because there are too many pending packets,
-		        or new data has beed received, try to send it later   */
-
-//				(void)NWK_MCPS_SapHandler(mpPacket,0);
-			}
-			g_Counter++;	// EQ2 - Cada 3s incrementa el contador
-			if(g_Counter > 3)
-			{
-				g_Counter = 0;	// Reiniciamos el contador
-			}
+//			if(mpPacket != NULL)
+//			{
+//				mpPacket->msgType = gMcpsDataReq_c;
+//				mpPacket->msgData.dataReq.pMsdu = (uint8_t*)&msg;
+//
+//		        mpPacket->msgData.dataReq.dstAddrMode = gAddrModeShortAddress_c;
+//		        mpPacket->msgData.dataReq.srcAddrMode = gAddrModeShortAddress_c;
+//		        mpPacket->msgData.dataReq.msduLength = sizeof(msg);
+//
+////		        FLib_MemCpy(&mpPacket->msgData.dataReq.dstAddr, &mCoordInfo.coordAddress, 8);
+////		        FLib_MemCpy(&mpPacket->msgData.dataReq.srcAddr, &maMyAddress, 8);
+////		        FLib_MemCpy(&mpPacket->msgData.dataReq.dstPanId, &mCoordInfo.coordPanId, 2);
+////		        FLib_MemCpy(&mpPacket->msgData.dataReq.srcPanId, &mCoordInfo.coordPanId, 2);
+////
+////		        FLib_MemCpy(&mpPacket->msgData.dataReq.dstAddr, (void*)&mDeviceShortAddress, 2);
+////		        FLib_MemCpy(&mpPacket->msgData.dataReq.srcAddr, (void*)&mShortAddress, 2);
+////		        FLib_MemCpy(&mpPacket->msgData.dataReq.dstPanId, (void*)&mPanId, 2);
+////		        FLib_MemCpy(&mpPacket->msgData.dataReq.srcPanId, (void*)&mPanId, 2);
+//
+////				mpPacket->msgData.dataReq.dstAddr = 0x0000;
+////				mpPacket->msgData.dataReq.srcAddr = 0x0001;
+////				mpPacket->msgData.dataReq.dstPanId = 0x0808;
+////				mpPacket->msgData.dataReq.srcPanId = 0x0808;
+//
+////				mpPacket->msgData.dataReq.dstAddrMode = gAddrModeShortAddress_c;
+////				mpPacket->msgData.dataReq.srcAddrMode = gAddrModeShortAddress_c;
+////				mpPacket->msgData.dataReq.msduLength = sizeof(msg);
+//
+//		        mpPacket->msgData.dataReq.txOptions = gMacTxOptionsAck_c;
+//		        mpPacket->msgData.dataReq.txOptions |= gMacTxOptionIndirect_c;
+//
+//				mpPacket->msgData.dataReq.msduHandle = mMsduHandle++;
+//				mpPacket->msgData.dataReq.securityLevel = gMacSecurityNone_c;
+//
+//		        /* Bind to MAC layer */
+//		        macInstance = BindToMAC( (instanceId_t)0 );
+//
+//		        /* Send the Data to the MCPS */
+//		        (void)NWK_MCPS_SapHandler(mpPacket, macInstance);
+//
+//		        /* If the data wasn't send over the air because there are too many pending packets,
+//		        or new data has beed received, try to send it later   */
+//
+////				(void)NWK_MCPS_SapHandler(mpPacket,0);
+//			}
 			break;
 
 		case gTaskEvent3_c: /* Event to stop the timer */
-			TurnOffLeds();
+//			TurnOffLeds();
 			TMR_StopTimer(myTimerID1);
 			break;
 
 		case gTaskEvent4_c: /* Event for SW3 presionado */
+			TMR_StopTimer(myTimerID1);	/* STOP Timer 3 seconds */
+        	MyTaskTimer_Start1();	/* Reiniciar el timer de 3 segundos */
 			TurnOffLeds();
-			Led4On();		// LED VERDE
+			Led3On();			// LED VERDE
 			g_Counter = 1;		// EQ2: SW3 presionado: Counter = 1
-
-        	MyTaskTimer_Stop1();   /* STOP Timer 3 seconds */
-        	MyTaskTimer_Start1();	/*Reiniciar el timer de 3 segundos*/
-
 
 			// Code to send package
 
 			break;
 		case gTaskEvent5_c: /* Event for SW4 presionado */
+			TMR_StopTimer(myTimerID1);	/* STOP Timer 3 seconds */
+        	MyTaskTimer_Start1();	/* Reiniciar el timer de 3 segundos */
 			TurnOffLeds();
-			Led3On();		// LED AZUL
+			Led4On();			// LED AZUL
 			g_Counter = 2;		// EQ2: SW4 presionado: Counter = 2
-
-        	MyTaskTimer_Stop1();   /* STOP Timer 3 seconds */
-        	MyTaskTimer_Start1();	/*Reiniciar el timer de 3 segundos*/
 
 			// Code to send package
 
@@ -225,6 +212,9 @@ myTaskTimerCallback1 function */
 		default:
 			break;
 		}
+
+		// Code to send package
+
 	}
 }
 

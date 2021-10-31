@@ -97,7 +97,9 @@ extern void Mac_SetExtendedAddress(uint8_t *pAddr, instanceId_t instanceId);
 * Private type definitions
 *************************************************************************************
 ************************************************************************************/
-
+/* Para setear eventos de SW3 y SW4 en funcion App_HandleKeys*/
+extern osaEventId_t mMyEvents1;		// EQ2
+static bool_t FLAG = false;
 
 /************************************************************************************
 *************************************************************************************
@@ -220,19 +222,9 @@ void main_task(uint32_t param)
         Mac_RegisterSapHandlers( MCPS_NWK_SapHandler, MLME_NWK_SapHandler, macInstance );
 
         App_init();
-        MyTask_Init(); /* INIT MY NEW TASK */
-//        MyTask_Init1(); /* INIT MY NEW TASK */
-		TurnOffLeds();
-		Led1On();		// LED
-        TurnOffLeds();
-        Led2On();		// LED ROJO
-        TurnOffLeds();
-        Led3On();		// LED VERDE
-        TurnOffLeds();
-        Led4On();		// LED AZUL
-        TurnOffLeds();
-        TurnOnLeds();	// LED BLANCO
-		TurnOffLeds();
+//      MyTask_Init(); /* INIT MY NEW TASK LAB4*/
+        MyTask_Init1(); /* INIT MY NEW TASK */
+
 
 
         /* Create application task */
@@ -478,11 +470,7 @@ void AppThread(osaTaskParam_t argument)
             
 
         	Serial_Print(interfaceId, "\n\rStart scanning for a PAN coordinator\n\r", gAllowToBlock_d);
-
-        	MyTaskTimer_Start(); /*Start LED flashing with your task*/
-
-
-
+//        	MyTaskTimer_Start(); /*Start LED flashing with your task LAB4*/
 
             rc = App_StartScan(gScanModeActive_c);
             if(rc == errorNoError)
@@ -562,9 +550,8 @@ void AppThread(osaTaskParam_t argument)
                         rc = App_HandleAssociateConfirm(pMsgIn);
                         if (rc == errorNoError)
                         { 
-
-                        	MyTaskTimer_Stop();   /* STOP Timer from MY NEW TASK*/
-//                        	MyTaskTimer_Start1();	/*Start LED with logic counter value each 3 seconds*/
+//                        	MyTaskTimer_Stop();   /* STOP Timer from MY NEW TASK LAB4*/
+                        	MyTaskTimer_Start1();	/*Start LED with logic counter value each 3 seconds*/
 
                         	Serial_Print(interfaceId, "Successfully associated with the coordinator.\n\r", gAllowToBlock_d);
                             Serial_Print(interfaceId, "We were assigned the short address 0x", gAllowToBlock_d);
@@ -1208,13 +1195,13 @@ static void App_HandleKeys
     case gKBD_EventLongSW3_c:
     case gKBD_EventLongSW4_c:
     case gKBD_EventSW1_c:
-    	// Crear funcion que llame a esta funcion
-//    	OSA_EventSet(mMyEvents1, gTaskEvent4_c);	// EQ2 - SW3 presionado
-//    	break;
+    	if(gState == stateListen){
+    		OSA_EventSet(mMyEvents1, gTaskEvent5_c);	// EQ2 - SW4 presionado
+    		FLAG = true;
+    	}
     case gKBD_EventSW2_c:
-    	// Crear funcion que llame a esta funcion
-//    	OSA_EventSet(mMyEvents1, gTaskEvent5_c);	// EQ2 - SW4 presionado
-//    	break;
+    	if(gState == stateListen && FLAG == false)
+    		OSA_EventSet(mMyEvents1, gTaskEvent4_c);	// EQ2 - SW3 presionado
     case gKBD_EventSW3_c:
     case gKBD_EventSW4_c:
 #if gTsiSupported_d
@@ -1230,6 +1217,9 @@ static void App_HandleKeys
             LED_StopFlashingAllLeds();
             OSA_EventSet(mAppEvent, gAppEvtDummyEvent_c);
         }
+
+        // EQ2 Corregir problema con el switch case al presionar SW4
+        FLAG = false;
     }
 #endif
 }

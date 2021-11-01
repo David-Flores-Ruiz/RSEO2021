@@ -86,8 +86,10 @@ extern void Mac_SetExtendedAddress(uint8_t *pAddr, instanceId_t instanceId);
 *************************************************************************************
 ************************************************************************************/
 /* The short address and PAN ID of the coordinator*/
-static const uint16_t mShortAddress = mDefaultValueOfShortAddress_c;
+static const uint16_t mShortAddress = 0x0000;	// mDefaultValueOfShortAddress_c;
 static const uint16_t mPanId = 0x0202;	// EQ2 PAN ID 0x0202 		// mDefaultValueOfPanId_c;
+static uint8_t g_Counter = 3;	// EQ2
+static uint8_t msg[] = { 'C','o','u','n','t','e','r',':','x','\0'};		// EQ2
 
 /* The current logical channel (frequency band) */
 static uint8_t mLogicalChannel;
@@ -827,6 +829,35 @@ static void App_HandleMcpsInput(mcpsToNwkMessage_t *pMsgIn, uint8_t appInstance)
        or application layer when data has been received. We simply
        copy the received data to the UART. */
     Serial_SyncWrite( interfaceId,pMsgIn->msgData.dataInd.pMsdu, pMsgIn->msgData.dataInd.msduLength );
+
+    // EQ2 - Recibir paquete en el aire  de tipo "Counter:x"
+    g_Counter = pMsgIn->msgData.dataInd.pMsdu[8];	// EQ2 - RX Payload
+    g_Counter = g_Counter - '0';
+    TurnOffLeds();
+    switch (g_Counter) {
+    case 0:
+    	Led2On();		// LED ROJO
+    	break;
+    case 1:
+    	Led3On();		// LED VERDE
+    	break;
+    case 2:
+    	Led4On();		// LED AZUL
+    	break;
+    case 3:
+    	TurnOnLeds();	// LED BLANCO
+    	break;
+    default:
+    	break;
+    }
+    // EQ2 - Imprimir direccion de quien lo envio, LQI, Tamano Payload en TeraTerm
+    Serial_Print(interfaceId,"\n\r Direccion de quien lo envio: 0x",gAllowToBlock_d);
+    Serial_PrintHex(interfaceId, (uint8_t*)&pMsgIn->msgData.dataInd.srcAddr, (uint8_t)pMsgIn->msgData.dataInd.srcAddrMode, gPrtHexNoFormat_c);
+    Serial_Print(interfaceId,"\n\r LQI: ", gAllowToBlock_d);
+    Serial_PrintHex(interfaceId, (uint8_t*)&pMsgIn->msgData.dataInd.mpduLinkQuality, (uint8_t)1, gPrtHexNoFormat_c);
+    Serial_Print(interfaceId,"\n\r Tamano Payload: ", gAllowToBlock_d);
+    Serial_PrintHex(interfaceId, (uint8_t*)&pMsgIn->msgData.dataInd.msduLength, (uint8_t)1, gPrtHexNoFormat_c);
+    Serial_Print(interfaceId,"\n\r", gAllowToBlock_d);
     break;
     
   default:

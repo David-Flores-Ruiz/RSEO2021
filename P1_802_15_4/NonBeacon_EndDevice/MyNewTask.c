@@ -27,6 +27,13 @@ static instanceId_t   macInstance;
 static nwkToMcpsMessage_t *mpPacket;	// Data packet for sending UART
 static uint8_t mMsduHandle;				// Data packet identifier
 
+static panDescriptor_t mCoordInfo;		// Info to send the packet
+static uint16_t assocShortAddress1;			// Short address nodo1
+static uint16_t assocShortAddress2;			// Short address nodo2
+static uint16_t assocShortAddress3;			// Short address nodo3
+static uint16_t assocShortAddress4;			// Short address nodo4
+static uint16_t assocShortAddress5;			// Short address nodo5
+
 //f. Define the callback that will be called each time the timer expires
 /* This is the function called by the Timer each time it expires */
 static void myTaskTimerCallback(void *param)
@@ -133,55 +140,10 @@ myTaskTimerCallback1 function */
 				default:
 					break;
 			}
-//			// EQ2 - Envia paquete en el aire  de tipo "Counter:x"
-//			msg[8] = '0' + g_Counter;
-//			mpPacket = MSG_Alloc(sizeof(nwkToMcpsMessage_t) + 1);
-//
-//			if(mpPacket != NULL)
-//			{
-//				mpPacket->msgType = gMcpsDataReq_c;
-//				mpPacket->msgData.dataReq.pMsdu = (uint8_t*)&msg;
-//
-//		        mpPacket->msgData.dataReq.dstAddrMode = gAddrModeShortAddress_c;
-//		        mpPacket->msgData.dataReq.srcAddrMode = gAddrModeShortAddress_c;
-//		        mpPacket->msgData.dataReq.msduLength = sizeof(msg);
-//
-////		        FLib_MemCpy(&mpPacket->msgData.dataReq.dstAddr, &mCoordInfo.coordAddress, 8);
-////		        FLib_MemCpy(&mpPacket->msgData.dataReq.srcAddr, &maMyAddress, 8);
-////		        FLib_MemCpy(&mpPacket->msgData.dataReq.dstPanId, &mCoordInfo.coordPanId, 2);
-////		        FLib_MemCpy(&mpPacket->msgData.dataReq.srcPanId, &mCoordInfo.coordPanId, 2);
-////
-////		        FLib_MemCpy(&mpPacket->msgData.dataReq.dstAddr, (void*)&mDeviceShortAddress, 2);
-////		        FLib_MemCpy(&mpPacket->msgData.dataReq.srcAddr, (void*)&mShortAddress, 2);
-////		        FLib_MemCpy(&mpPacket->msgData.dataReq.dstPanId, (void*)&mPanId, 2);
-////		        FLib_MemCpy(&mpPacket->msgData.dataReq.srcPanId, (void*)&mPanId, 2);
-//
-////				mpPacket->msgData.dataReq.dstAddr = 0x0000;
-////				mpPacket->msgData.dataReq.srcAddr = 0x0001;
-////				mpPacket->msgData.dataReq.dstPanId = 0x0808;
-////				mpPacket->msgData.dataReq.srcPanId = 0x0808;
-//
-////				mpPacket->msgData.dataReq.dstAddrMode = gAddrModeShortAddress_c;
-////				mpPacket->msgData.dataReq.srcAddrMode = gAddrModeShortAddress_c;
-////				mpPacket->msgData.dataReq.msduLength = sizeof(msg);
-//
-//		        mpPacket->msgData.dataReq.txOptions = gMacTxOptionsAck_c;
-//		        mpPacket->msgData.dataReq.txOptions |= gMacTxOptionIndirect_c;
-//
-//				mpPacket->msgData.dataReq.msduHandle = mMsduHandle++;
-//				mpPacket->msgData.dataReq.securityLevel = gMacSecurityNone_c;
-//
-//		        /* Bind to MAC layer */
-//		        macInstance = BindToMAC( (instanceId_t)0 );
-//
-//		        /* Send the Data to the MCPS */
-//		        (void)NWK_MCPS_SapHandler(mpPacket, macInstance);
-//
-//		        /* If the data wasn't send over the air because there are too many pending packets,
-//		        or new data has beed received, try to send it later   */
-//
-////				(void)NWK_MCPS_SapHandler(mpPacket,0);
-//			}
+			// EQ2 - Actualizamos el valor del Counter por timer 3s
+			msg[8] = '0' + g_Counter;
+			// EQ2 - Envia paquete en el aire  de tipo "Counter:x"
+			EnviarPaqueteEnElAire();
 			break;
 
 		case gTaskEvent3_c: /* Event to stop the timer */
@@ -195,26 +157,26 @@ myTaskTimerCallback1 function */
 			TurnOffLeds();
 			Led3On();			// LED VERDE
 			g_Counter = 1;		// EQ2: SW3 presionado: Counter = 1
-
-			// Code to send package
-
+			// EQ2 - Actualizamos el valor del Counter por SW3
+			msg[8] = '0' + g_Counter;
+			// EQ2 - Envia paquete en el aire  de tipo "Counter:x"
+			EnviarPaqueteEnElAire();
 			break;
+
 		case gTaskEvent5_c: /* Event for SW4 presionado */
 			TMR_StopTimer(myTimerID1);	/* STOP Timer 3 seconds */
         	MyTaskTimer_Start1();	/* Reiniciar el timer de 3 segundos */
 			TurnOffLeds();
 			Led4On();			// LED AZUL
 			g_Counter = 2;		// EQ2: SW4 presionado: Counter = 2
-
-			// Code to send package
-
+			// EQ2 - Actualizamos el valor del Counter por SW4
+			msg[8] = '0' + g_Counter;
+			// EQ2 - Envia paquete en el aire  de tipo "Counter:x"
+			EnviarPaqueteEnElAire();
 			break;
 		default:
 			break;
 		}
-
-		// Code to send package
-
 	}
 }
 
@@ -262,5 +224,46 @@ void MyTaskTimer_Stop1(void)
 	OSA_EventSet(mMyEvents1, gTaskEvent3_c);
 }
 
+void EnviarPaqueteEnElAire(void)
+{
+	// EQ2 - Envia paquete en el aire  de tipo "Counter:x"
+	if(mpPacket == NULL)
+		mpPacket = MSG_Alloc(sizeof(nwkToMcpsMessage_t) + 1);
 
+	if(mpPacket != NULL)
+	{
+		mpPacket->msgType = gMcpsDataReq_c;
+		mpPacket->msgData.dataReq.pMsdu = (uint8_t*)&msg;	// EQ2 - TX Payload
+
+        mpPacket->msgData.dataReq.dstAddrMode = gAddrModeShortAddress_c;
+        mpPacket->msgData.dataReq.srcAddrMode = gAddrModeShortAddress_c;
+        mpPacket->msgData.dataReq.msduLength = sizeof(msg);
+
+        mCoordInfo.coordAddress = 0xCAFE;	// EQ2 - Cambiar 0xCAFE a 0x0000
+        assocShortAddress1 = 0x0001;				// EQ2 - Nodo1
+        assocShortAddress2 = 0x0002;				// EQ2 - Nodo2
+        assocShortAddress3 = 0x0003;				// EQ2 - Nodo3
+        assocShortAddress4 = 0x0004;				// EQ2 - Nodo4
+        assocShortAddress5 = 0x0005;				// EQ2 - Nodo5
+        mCoordInfo.coordPanId = 0x0202;		// EQ2 - PAN ID 0x0202
+
+        FLib_MemCpy(&mpPacket->msgData.dataReq.dstAddr, &mCoordInfo.coordAddress, 8);
+        FLib_MemCpy(&mpPacket->msgData.dataReq.srcAddr, &assocShortAddress1, 2);
+        FLib_MemCpy(&mpPacket->msgData.dataReq.dstPanId, &mCoordInfo.coordPanId, 2);
+        FLib_MemCpy(&mpPacket->msgData.dataReq.srcPanId, &mCoordInfo.coordPanId, 2);
+
+        mpPacket->msgData.dataReq.txOptions = gMacTxOptionsAck_c;
+		mpPacket->msgData.dataReq.msduHandle = mMsduHandle++;
+		mpPacket->msgData.dataReq.securityLevel = gMacSecurityNone_c;
+
+        /* Bind to MAC layer */
+        macInstance = BindToMAC( (instanceId_t)0 );
+
+        /* Send the Data to the MCPS */
+        (void)NWK_MCPS_SapHandler(mpPacket, macInstance);
+
+        /* If the data wasn't send over the air because there are too many pending packets,
+        or new data has beed received, try to send it later   */
+	}
+}
 

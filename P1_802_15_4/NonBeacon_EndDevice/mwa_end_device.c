@@ -142,7 +142,13 @@ static anchor_t mMcpsNwkInputQueue;
 
 static tmrTimerID_t mTimer_c = gTmrInvalidTimerID_c;
 
-static const uint64_t mExtendedAddress  = mMacExtendedAddress_c;
+//static const uint64_t mExtendedAddress  = mMacExtendedAddress_c;
+static const uint64_t mExtendedAddress1  = 0xFF11FF11FF11FF11;	// EQ2 - MAC1 Nodo 1
+static const uint64_t mExtendedAddress2  = 0xFF22FF22FF22FF22;	// EQ2 - MAC2 Nodo 2
+static const uint64_t mExtendedAddress3  = 0xFF33FF33FF33FF33;	// EQ2 - MAC3 Nodo 3
+static const uint64_t mExtendedAddress4  = 0xFF44FF44FF44FF44;	// EQ2 - MAC4 Nodo 4
+static const uint64_t mExtendedAddress5  = 0xFF55FF55FF55FF55;	// EQ2 - MAC5 Nodo 5
+
 static instanceId_t   macInstance;
 static uint8_t        interfaceId;
 osaEventId_t          mAppEvent;
@@ -321,7 +327,7 @@ void App_init( void )
     mPollInterval = mDefaultValueOfPollIntervalSlow_c;
     
     /* Initialize the MAC 802.15.4 extended address */
-    Mac_SetExtendedAddress( (uint8_t*)&mExtendedAddress, macInstance );
+    Mac_SetExtendedAddress( (uint8_t*)&mExtendedAddress1, macInstance );
     
     mTimer_c = TMR_AllocateTimer();
     /* register keyboard callback function */
@@ -909,7 +915,7 @@ static uint8_t App_HandleAssociateConfirm(nwkMessage_t *pMsg)
 	  if( pMsg->msgData.associateCnf.assocShortAddress >= 0xFFFE)
 	  {
 	    mAddrMode = gAddrModeExtendedAddress_c;
-	    FLib_MemCpy(maMyAddress, (void*)&mExtendedAddress, 8);
+	    FLib_MemCpy(maMyAddress, (void*)&mExtendedAddress1, 8);
 	  }
 	  else
 	  {

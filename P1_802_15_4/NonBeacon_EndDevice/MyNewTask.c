@@ -22,7 +22,6 @@ osaTaskId_t gMyTaskHandler_ID1;
 static uint8_t ledsState = 0;
 static uint8_t g_Counter = 3;	// EQ2
 static uint8_t msg[] = { 'C','o','u','n','t','e','r',':','x','\0'};		// EQ2
-//static uint8_t msg[] = "Counter: #";
 static instanceId_t   macInstance;
 static nwkToMcpsMessage_t *mpPacket;	// Data packet for sending UART
 static uint8_t mMsduHandle;				// Data packet identifier
@@ -228,7 +227,7 @@ void EnviarPaqueteEnElAire(void)
 {
 	// EQ2 - Envia paquete en el aire  de tipo "Counter:x"
 	if(mpPacket == NULL)
-		mpPacket = MSG_Alloc(sizeof(nwkToMcpsMessage_t) + 1);
+        mpPacket = MSG_Alloc(sizeof(nwkToMcpsMessage_t) + gMaxPHYPacketSize_c);
 
 	if(mpPacket != NULL)
 	{
@@ -239,7 +238,7 @@ void EnviarPaqueteEnElAire(void)
         mpPacket->msgData.dataReq.srcAddrMode = gAddrModeShortAddress_c;
         mpPacket->msgData.dataReq.msduLength = sizeof(msg);
 
-        mCoordInfo.coordAddress = 0xCAFE;	// EQ2 - Cambiar 0xCAFE a 0x0000
+        mCoordInfo.coordAddress = 0x0000;	// EQ2 - Cambia 0xCAFE a 0x0000 ok!
         assocShortAddress1 = 0x0001;				// EQ2 - Nodo1
         assocShortAddress2 = 0x0002;				// EQ2 - Nodo2
         assocShortAddress3 = 0x0003;				// EQ2 - Nodo3
@@ -260,7 +259,10 @@ void EnviarPaqueteEnElAire(void)
         macInstance = BindToMAC( (instanceId_t)0 );
 
         /* Send the Data to the MCPS */
-        (void)NWK_MCPS_SapHandler(mpPacket, macInstance);
+        (void)NWK_MCPS_SapHandler(mpPacket, 0);
+
+        /* Prepare for another data buffer */
+        mpPacket = NULL;
 
         /* If the data wasn't send over the air because there are too many pending packets,
         or new data has beed received, try to send it later   */

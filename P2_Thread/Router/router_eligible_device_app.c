@@ -536,6 +536,25 @@ static void APP_ThrNwkJoin
     uint8_t *param
 )
 {
+	//-----------------------------------
+	tmrTimerID_t appTimerID;
+	appTimerID = TMR_AllocateTimer();
+
+	//-----------------------------------
+	tmrTimeInMilliseconds_t appTimeoutMs;
+	appTimeoutMs = 2000;
+
+	//-----------------------------------5
+	void appCallback(void *param)
+	{
+
+	    shell_write("Counter =  from  ");
+	    shell_write("\r\n");
+	
+	}
+
+	TMR_StartSecondTimer(appTimerID, appTimeoutMs, appCallback, NULL);
+
     if(THR_NwkJoin(mThrInstanceId, THR_APP_JOIN_DISCOVERY_METHOD) != gThrStatus_Success_c)
     {
         /* User can treat join failure according to their application */

@@ -536,6 +536,37 @@ static void APP_ThrNwkJoin
     uint8_t *param
 )
 {
+	//-----------------------------------
+	tmrTimerID_t appTimerID;
+	appTimerID = TMR_AllocateTimer();
+	//-----------------------------------
+	tmrTimeInMilliseconds_t appTimeoutMs;
+	appTimeoutMs = 2000;
+	//-----------------------------------5
+	
+	void appCallback(void *param)
+	{
+	
+	static uint8_t pMySessionPayload[3] = {0x31,0x32,0x33};
+	static uint32_t pMyPayloadSize= 3;
+	coapSession_t *pMySession = NULL;
+	
+	pMySession = COAP_OpenSession(mAppCoapInstId);        
+	COAP_AddOptionToList(pMySession, COAP_URI_PATH_OPTION, APP_RESOURCE2_URI_PATH,SizeOfString(APP_RESOURCE2_URI_PATH));
+
+	pMySession -> msgType=gCoapNonConfirmable_c;
+	pMySession -> code = gCoapGET_c;
+	pMySession -> pCallback = NULL;
+        
+	FLib_MemCpy(&pMySession->remoteAddrStorage.ss_addr,&gCoapDestAddress,sizeof(ipAddr_t));
+	COAP_Send(pMySession, gCoapMsgTypeNonPost_c, pMySessionPayload, pMyPayloadSize);
+	
+	shell_write("Counter =  from  ");
+	shell_write("\r\n");	
+	}
+
+	TMR_StartSecondTimer(appTimerID, appTimeoutMs, appCallback, NULL);
+	
     if(THR_NwkJoin(mThrInstanceId, THR_APP_JOIN_DISCOVERY_METHOD) != gThrStatus_Success_c)
     {
         /* User can treat join failure according to their application */

@@ -85,6 +85,9 @@ Private macros
 #define APP_RESOURCE1_URI_PATH					"/resource1"
 #define APP_RESOURCE2_URI_PATH					"/resource2"
 
+#define APP_TEAM2_URI_PATH					"/team2"	// EQ2
+#define APP_ACCEL_URI_PATH					"/accel"
+
 
 #if LARGE_NETWORK
 #define APP_RESET_TO_FACTORY_URI_PATH           "/reset"
@@ -132,6 +135,9 @@ static void App_RestoreLeaderLed(uint8_t *param);
 static void APP_CoapResource1Cb(coapSessionStatus_t sessionStatus, void *pData, coapSession_t *pSession, uint32_t dataLen);
 static void APP_CoapResource2Cb(coapSessionStatus_t sessionStatus, void *pData, coapSession_t *pSession, uint32_t dataLen);
 
+static void APP_CoapTeam2Cb(coapSessionStatus_t sessionStatus, void *pData, coapSession_t *pSession, uint32_t dataLen);	// EQ2
+static void APP_CoapAccelCb(coapSessionStatus_t sessionStatus, void *pData, coapSession_t *pSession, uint32_t dataLen);
+
 #if LARGE_NETWORK
 static void APP_CoapResetToFactoryDefaultsCb(coapSessionStatus_t sessionStatus, uint8_t *pData, coapSession_t *pSession, uint32_t dataLen);
 static void APP_SendResetToFactoryCommand(uint8_t *param);
@@ -153,6 +159,9 @@ const coapUriPath_t gAPP_SINK_URI_PATH = {SizeOfString(APP_SINK_URI_PATH), (uint
 
 const coapUriPath_t gAPP_RESOURCE1_URI_PATH = {SizeOfString(APP_RESOURCE1_URI_PATH), APP_RESOURCE1_URI_PATH};
 const coapUriPath_t gAPP_RESOURCE2_URI_PATH = {SizeOfString(APP_RESOURCE2_URI_PATH), APP_RESOURCE2_URI_PATH};
+
+const coapUriPath_t gAPP_TEAM2_URI_PATH = {SizeOfString(APP_TEAM2_URI_PATH), APP_TEAM2_URI_PATH};	// EQ2
+const coapUriPath_t gAPP_ACCEL_URI_PATH = {SizeOfString(APP_ACCEL_URI_PATH), APP_ACCEL_URI_PATH};
 
 
 #if LARGE_NETWORK
@@ -186,6 +195,27 @@ uint32_t leaderLedTimestamp = 0;
 taskMsgQueue_t *mpAppThreadMsgQueue = NULL;
 
 extern bool_t gEnable802154TxLed;
+
+// Variables de EQ2
+static uint8_t g_Counter = 0;
+
+/* Global Variable to store our TimerID */
+tmrTimerID_t myTimerID = gTmrInvalidTimerID_c;
+
+//f. Define the callback that will be called each time the timer expires
+/* This is the function called by the Timer each time it expires */
+static void myTaskTimerCallback(void *param)
+{
+	// Will have a counter from 1 to 200
+	g_Counter++;
+
+//    shell_printf("\tg_Counter: %u\n\r", g_Counter);	// DEBUG EQ2
+//    shell_refresh();
+
+	if(g_Counter >= 201){
+		g_Counter = 1;	// Reiniciamos el contador
+	}
+}
 
 /*==================================================================================================
 Public functions
@@ -468,6 +498,17 @@ void APP_Commissioning_Handler
         case gThrEv_MeshCop_CommissionerJoinerDtlsError_c:
             break;
         case gThrEv_MeshCop_CommissionerJoinerAccepted_c:
+//            shell_write("\rRouter 2 joins the network\n\r");	// DEBUG EQ2
+//            shell_refresh();
+        	shell_write("\rStart a timer 1 sec, with counter from 1 to 200\n\r");	// EQ2
+        	shell_refresh();
+        	myTimerID = TMR_AllocateTimer();
+			TMR_StartIntervalTimer(myTimerID, /*myTimerID*/
+					1000, /* Timer's Timeout */
+					myTaskTimerCallback, /* pointer to myTaskTimerCallback function */
+					NULL
+			);
+
             break;
         case gThrEv_MeshCop_CommissionerNwkDataSynced_c:
             break;
@@ -512,6 +553,8 @@ static void APP_InitCoapDemo
                                      {APP_CoapTempCb, (coapUriPath_t *)&gAPP_TEMP_URI_PATH},
 									 {APP_CoapResource1Cb, (coapUriPath_t*)&gAPP_RESOURCE1_URI_PATH},
 									 {APP_CoapResource2Cb, (coapUriPath_t*)&gAPP_RESOURCE2_URI_PATH},
+									 {APP_CoapTeam2Cb, (coapUriPath_t*)&gAPP_TEAM2_URI_PATH},	// EQ2
+									 {APP_CoapAccelCb, (coapUriPath_t*)&gAPP_ACCEL_URI_PATH},
 #if LARGE_NETWORK
                                      {APP_CoapResetToFactoryDefaultsCb, (coapUriPath_t *)&gAPP_RESET_URI_PATH},
 #endif
@@ -539,6 +582,7 @@ static void APP_ThrNwkJoin
     if(THR_NwkJoin(mThrInstanceId, THR_APP_JOIN_DISCOVERY_METHOD) != gThrStatus_Success_c)
     {
         /* User can treat join failure according to their application */
+
     }
 }
 
@@ -953,6 +997,81 @@ uint32_t dataLen
   shell_write("\r\n");
 }
 
+static void APP_CoapTeam2Cb
+(
+coapSessionStatus_t sessionStatus,
+void *pData,
+coapSession_t *pSession,
+uint32_t dataLen
+)
+
+{
+  static uint8_t pMySessionPayload[3]={0x31,0x32,0x33};	// ACK
+  static uint32_t pMyPayloadSize=3;
+  static uint8_t pMySessionPayloadCounter = 0;	// Counter 0
+  pMySessionPayloadCounter = g_Counter;			// Counter from 1 to 200
+  static uint32_t pMyPayloadSizeCounter=1;
+  coapSession_t *pMySession = NULL;
+  pMySession = COAP_OpenSession(mAppCoapInstId);
+  COAP_AddOptionToList(pMySession,COAP_URI_PATH_OPTION, APP_RESOURCE2_URI_PATH,SizeOfString(APP_RESOURCE2_URI_PATH));
+
+    if (gCoapConfirmable_c == pSession->msgType)
+  {
+    if (gCoapGET_c == pSession->code)
+    {
+      shell_write("'CON' packet received 'GET' with payload: ");
+    }
+    if (gCoapPOST_c == pSession->code)
+    {
+      shell_write("'CON' packet received 'POST' with payload: ");
+    }
+    if (gCoapPUT_c == pSession->code)
+    {
+      shell_write("'CON' packet received 'PUT' with payload: ");
+    }
+    if (gCoapFailure_c!=sessionStatus)
+    {
+      COAP_Send(pSession, gCoapMsgTypeAckSuccessChanged_c, pMySessionPayload, pMyPayloadSize);
+    }
+  }
+
+  else if(gCoapNonConfirmable_c == pSession->msgType)
+  {
+    if (gCoapGET_c == pSession->code)
+    {
+      shell_write("'NON' packet received 'GET' with payload: ");
+    }
+    if (gCoapPOST_c == pSession->code)
+    {
+      shell_write("'NON' packet received 'POST' with payload: ");
+    }
+    if (gCoapPUT_c == pSession->code)
+    {
+      shell_write("'NON' packet received 'PUT' with payload: ");
+    }
+  }
+
+  shell_writeN(pData, dataLen);	// payload EQ2
+  shell_write("\r\n");
+
+  // Print in shell the IP address of the requester
+  shell_printf("coap requester from ");	// EQ2
+  shell_printf(pSession->remoteAddrStorage.ss_addr);
+//  shell_printf("\tFrom IPv6 Address: %s\n\r", pSession->remoteAddrStorage.ss_addr);
+
+
+  pMySession -> msgType=gCoapNonConfirmable_c;
+  pMySession -> code= gCoapPOST_c;
+  pMySession -> pCallback =NULL;
+
+  FLib_MemCpy(&pMySession->remoteAddrStorage.ss_addr,&gCoapDestAddress,sizeof(ipAddr_t));
+
+  COAP_Send(pMySession, gCoapMsgTypeNonPost_c, pMySessionPayloadCounter, pMyPayloadSizeCounter);
+
+  shell_write("'NON' packet sent 'POST' with payload: ");
+  shell_writeN((char*) pMySessionPayloadCounter, pMyPayloadSizeCounter);
+  shell_write("\r\n");
+}
 
 static void APP_CoapResource2Cb
 (
@@ -971,6 +1090,20 @@ uint32_t dataLen
   }
 }
 
+static void APP_CoapAccelCb
+(
+coapSessionStatus_t sessionStatus,
+void *pData,
+coapSession_t *pSession,
+uint32_t dataLen
+)
+
+{
+  if (gCoapNonConfirmable_c == pSession->msgType)
+  {
+
+  }
+}
 
 /*!*************************************************************************************************
 \private

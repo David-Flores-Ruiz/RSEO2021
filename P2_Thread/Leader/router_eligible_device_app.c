@@ -85,8 +85,8 @@ Private macros
 #define APP_RESOURCE1_URI_PATH					"/resource1"
 #define APP_RESOURCE2_URI_PATH					"/resource2"
 
-#define APP_TEAM2_URI_PATH					"/team2"	// EQ2
-#define APP_ACCEL_URI_PATH					"/accel"
+#define APP_TEAM2_URI_PATH						"/team2"	// EQ2
+#define APP_ACCEL_URI_PATH						"/accel"
 
 
 #if LARGE_NETWORK
@@ -197,7 +197,7 @@ taskMsgQueue_t *mpAppThreadMsgQueue = NULL;
 extern bool_t gEnable802154TxLed;
 
 // Variables de EQ2
-static uint8_t g_Counter = 0;
+static uint8_t g_Counter = 0x30;
 
 /* Global Variable to store our TimerID */
 tmrTimerID_t myTimerID = gTmrInvalidTimerID_c;
@@ -212,8 +212,8 @@ static void myTaskTimerCallback(void *param)
 //    shell_printf("\tg_Counter: %u\n\r", g_Counter);	// DEBUG EQ2
 //    shell_refresh();
 
-	if(g_Counter >= 201){
-		g_Counter = 1;	// Reiniciamos el contador
+	if(g_Counter >= 0xF9){
+		g_Counter = 0x31;	// Reiniciamos el contador
 	}
 }
 
@@ -503,9 +503,9 @@ void APP_Commissioning_Handler
         	shell_write("\rStart a timer 1 sec, with counter from 1 to 200\n\r");	// EQ2
         	shell_refresh();
         	myTimerID = TMR_AllocateTimer();
-			TMR_StartIntervalTimer(myTimerID, /*myTimerID*/
-					1000, /* Timer's Timeout */
-					myTaskTimerCallback, /* pointer to myTaskTimerCallback function */
+			TMR_StartIntervalTimer(myTimerID, 	/* myTimerID */
+					1000, 						/* Timer's Timeout */
+					myTaskTimerCallback, 		/* pointer to myTaskTimerCallback function */
 					NULL
 			);
 
@@ -1008,10 +1008,11 @@ uint32_t dataLen
 {
   static uint8_t pMySessionPayload[3]={0x31,0x32,0x33};	// ACK
   static uint32_t pMyPayloadSize=3;
-  static uint8_t pMySessionPayloadCounter = 0;	// Counter 0
-  pMySessionPayloadCounter = g_Counter;			// Counter from 1 to 200
-  static uint32_t pMyPayloadSizeCounter=1;
+  static uint8_t pMySessionPayloadCounter[3]={0x31,0x32,0x33};	// Counter 0
+  pMySessionPayloadCounter[0] = g_Counter;			// Counter from 1 to 200
+  static uint32_t pMyPayloadSizeCounter=3;
   coapSession_t *pMySession = NULL;
+  char addrStr[INET6_ADDRSTRLEN];					// Source IP address
   pMySession = COAP_OpenSession(mAppCoapInstId);
   COAP_AddOptionToList(pMySession,COAP_URI_PATH_OPTION, APP_RESOURCE2_URI_PATH,SizeOfString(APP_RESOURCE2_URI_PATH));
 
@@ -1055,9 +1056,10 @@ uint32_t dataLen
   shell_write("\r\n");
 
   // Print in shell the IP address of the requester
-  shell_printf("coap requester from ");	// EQ2
-  shell_printf(pSession->remoteAddrStorage.ss_addr);
-//  shell_printf("\tFrom IPv6 Address: %s\n\r", pSession->remoteAddrStorage.ss_addr);
+  ntop(AF_INET6, (ipAddr_t*)&pSession->remoteAddrStorage.ss_addr, addrStr, INET6_ADDRSTRLEN);
+  shell_write("\r");
+  shell_printf("From IPv6 Address: %s\r", addrStr);	// EQ2
+  shell_refresh();
 
 
   pMySession -> msgType=gCoapNonConfirmable_c;
@@ -1069,8 +1071,8 @@ uint32_t dataLen
   COAP_Send(pMySession, gCoapMsgTypeNonPost_c, pMySessionPayloadCounter, pMyPayloadSizeCounter);
 
   shell_write("'NON' packet sent 'POST' with payload: ");
-  shell_writeN((char*) pMySessionPayloadCounter, pMyPayloadSizeCounter);
-  shell_write("\r\n");
+  shell_writeN(pMySessionPayloadCounter, pMyPayloadSizeCounter);
+  shell_write("\r\n\n");
 }
 
 static void APP_CoapResource2Cb

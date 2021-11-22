@@ -76,16 +76,9 @@ Private macros
 
 #define gAppJoinTimeout_c                       800    /* miliseconds */
 
-
-// 1. Define the URI path names that will be used in the shell to access the resources.
 #define APP_LED_URI_PATH                        "/led"
 #define APP_TEMP_URI_PATH                       "/temp"
 #define APP_SINK_URI_PATH                       "/sink"
-
-#define APP_RESOURCE1_URI_PATH					"/resource1"
-#define APP_RESOURCE2_URI_PATH					"/resource2"
-
-
 #if LARGE_NETWORK
 #define APP_RESET_TO_FACTORY_URI_PATH           "/reset"
 #endif
@@ -100,7 +93,9 @@ Private type definitions
 Private global variables declarations
 ==================================================================================================*/
 static instanceId_t mThrInstanceId = gInvalidInstanceId_c;    /*!< Thread Instance ID */
+
 static bool_t mFirstPushButtonPressed = FALSE;
+
 static bool_t mJoiningIsAppInitiated = FALSE;
 
 /*==================================================================================================
@@ -126,12 +121,6 @@ static void APP_CoapLedCb(coapSessionStatus_t sessionStatus, uint8_t *pData, coa
 static void APP_CoapTempCb(coapSessionStatus_t sessionStatus, uint8_t *pData, coapSession_t *pSession, uint32_t dataLen);
 static void APP_CoapSinkCb(coapSessionStatus_t sessionStatus, uint8_t *pData, coapSession_t *pSession, uint32_t dataLen);
 static void App_RestoreLeaderLed(uint8_t *param);
-
-// 3. Create the callbacks for the resources. This callbacks will handle
-// the packet received and perform the desired action depending on the type of COAP method received.
-static void APP_CoapResource1Cb(coapSessionStatus_t sessionStatus, void *pData, coapSession_t *pSession, uint32_t dataLen);
-static void APP_CoapResource2Cb(coapSessionStatus_t sessionStatus, void *pData, coapSession_t *pSession, uint32_t dataLen);
-
 #if LARGE_NETWORK
 static void APP_CoapResetToFactoryDefaultsCb(coapSessionStatus_t sessionStatus, uint8_t *pData, coapSession_t *pSession, uint32_t dataLen);
 static void APP_SendResetToFactoryCommand(uint8_t *param);
@@ -147,14 +136,6 @@ Public global variables declarations
 const coapUriPath_t gAPP_LED_URI_PATH  = {SizeOfString(APP_LED_URI_PATH), (uint8_t *)APP_LED_URI_PATH};
 const coapUriPath_t gAPP_TEMP_URI_PATH = {SizeOfString(APP_TEMP_URI_PATH), (uint8_t *)APP_TEMP_URI_PATH};
 const coapUriPath_t gAPP_SINK_URI_PATH = {SizeOfString(APP_SINK_URI_PATH), (uint8_t *)APP_SINK_URI_PATH};
-
-// 2. Declare the URI resources with coapUriPath_t. When using this struct
-// the user must enter the length of the URI path and the path created in the last step.
-
-const coapUriPath_t gAPP_RESOURCE1_URI_PATH = {SizeOfString(APP_RESOURCE1_URI_PATH), APP_RESOURCE1_URI_PATH};
-const coapUriPath_t gAPP_RESOURCE2_URI_PATH = {SizeOfString(APP_RESOURCE2_URI_PATH), APP_RESOURCE2_URI_PATH};
-
-
 #if LARGE_NETWORK
 const coapUriPath_t gAPP_RESET_URI_PATH = {SizeOfString(APP_RESET_TO_FACTORY_URI_PATH), (uint8_t *)APP_RESET_TO_FACTORY_URI_PATH};
 #endif
@@ -186,6 +167,30 @@ uint32_t leaderLedTimestamp = 0;
 taskMsgQueue_t *mpAppThreadMsgQueue = NULL;
 
 extern bool_t gEnable802154TxLed;
+
+// Variables de EQ2
+
+/* Global Variable to store our TimerID */
+tmrTimerID_t myTimerID = gTmrInvalidTimerID_c;
+
+//f. Define the callback that will be called each time the timer expires
+/* This is the function called by the Timer each time it expires */
+static void myTaskTimerCallback(void *param)
+{
+	// Will have a counter from 1 to 200
+	static uint8_t pMySessionPayload[3]={0x31,0x32,0x33};
+	static uint32_t pMyPayloadSize=3;
+	coapSession_t *pMySession = NULL;
+	pMySession = COAP_OpenSession(mAppCoapInstId);
+	COAP_AddOptionToList(pMySession, COAP_URI_PATH_OPTION, APP_TEAM2_URI_PATH, SizeOfString(APP_TEAM2_URI_PATH));
+
+	pMySession -> msgType = gCoapConfirmable_c;
+	pMySession -> code = gCoapGET_c;
+	pMySession -> pCallback = NULL;
+
+	FLib_MemCpy(&pMySession->remoteAddrStorage.ss_addr,&gCoapDestAddress,sizeof(ipAddr_t));
+	COAP_Send(pMySession, gCoapMsgTypeConGet_c, pMySessionPayload, pMyPayloadSize);
+}
 
 /*==================================================================================================
 Public functions
@@ -468,6 +473,17 @@ void APP_Commissioning_Handler
         case gThrEv_MeshCop_CommissionerJoinerDtlsError_c:
             break;
         case gThrEv_MeshCop_CommissionerJoinerAccepted_c:
+//        	shell_write("\rRouter 2 joins the network\n\r");	// DEBUG EQ2
+//        	shell_refresh();
+        	shell_write("\rStart a timer 5 sec, to request counter\n\r");	// EQ2
+        	shell_refresh();
+        	myTimerID = TMR_AllocateTimer();
+        	TMR_StartIntervalTimer(myTimerID, 	/* myTimerID */
+        			5000, 						/* Timer's Timeout */
+					myTaskTimerCallback, 		/* pointer to myTaskTimerCallback function */
+					NULL
+        	);
+
             break;
         case gThrEv_MeshCop_CommissionerNwkDataSynced_c:
             break;
@@ -499,10 +515,6 @@ Private functions
 \fn     static void APP_InitCoapDemo(void)
 \brief  Initialize CoAP demo.
 ***************************************************************************************************/
-
-// 5. After creating the callbacks,
-// those must be registered in the CoAP callback array in the function APP_InitCoapDemo(void)
-
 static void APP_InitCoapDemo
 (
     void
@@ -510,8 +522,6 @@ static void APP_InitCoapDemo
 {
     coapRegCbParams_t cbParams[] =  {{APP_CoapLedCb,  (coapUriPath_t *)&gAPP_LED_URI_PATH},
                                      {APP_CoapTempCb, (coapUriPath_t *)&gAPP_TEMP_URI_PATH},
-									 {APP_CoapResource1Cb, (coapUriPath_t*)&gAPP_RESOURCE1_URI_PATH},
-									 {APP_CoapResource2Cb, (coapUriPath_t*)&gAPP_RESOURCE2_URI_PATH},
 #if LARGE_NETWORK
                                      {APP_CoapResetToFactoryDefaultsCb, (coapUriPath_t *)&gAPP_RESET_URI_PATH},
 #endif
@@ -536,37 +546,6 @@ static void APP_ThrNwkJoin
     uint8_t *param
 )
 {
-	//-----------------------------------
-	tmrTimerID_t appTimerID;
-	appTimerID = TMR_AllocateTimer();
-	//-----------------------------------
-	tmrTimeInMilliseconds_t appTimeoutMs;
-	appTimeoutMs = 2000;
-	//-----------------------------------5
-	
-	void appCallback(void *param)
-	{
-	
-	static uint8_t pMySessionPayload[3] = {0x31,0x32,0x33};
-	static uint32_t pMyPayloadSize= 3;
-	coapSession_t *pMySession = NULL;
-	
-	pMySession = COAP_OpenSession(mAppCoapInstId);        
-	COAP_AddOptionToList(pMySession, COAP_URI_PATH_OPTION, APP_RESOURCE2_URI_PATH,SizeOfString(APP_RESOURCE2_URI_PATH));
-
-	pMySession -> msgType=gCoapNonConfirmable_c;
-	pMySession -> code = gCoapGET_c;
-	pMySession -> pCallback = NULL;
-        
-	FLib_MemCpy(&pMySession->remoteAddrStorage.ss_addr,&gCoapDestAddress,sizeof(ipAddr_t));
-	COAP_Send(pMySession, gCoapMsgTypeNonPost_c, pMySessionPayload, pMyPayloadSize);
-	
-	shell_write("Counter =  from  ");
-	shell_write("\r\n");	
-	}
-
-	TMR_StartSecondTimer(appTimerID, appTimeoutMs, appCallback, NULL);
-	
     if(THR_NwkJoin(mThrInstanceId, THR_APP_JOIN_DISCOVERY_METHOD) != gThrStatus_Success_c)
     {
         /* User can treat join failure according to their application */
@@ -912,96 +891,6 @@ static void APP_CoapGenericCallback
         }
     }
 }
-
-
-// 4. Add the callback handler for the packet received, in this
-// function it will be defined which action will be performed depending on the type of COAP method received.
-
-static void APP_CoapResource1Cb
-(
-coapSessionStatus_t sessionStatus,
-void *pData,
-coapSession_t *pSession,
-uint32_t dataLen
-)
-
-{
-  static uint8_t pMySessionPayload[3]={0x31,0x32,0x33};
-  static uint32_t pMyPayloadSize=3;
-  coapSession_t *pMySession = NULL;
-  pMySession = COAP_OpenSession(mAppCoapInstId);
-  COAP_AddOptionToList(pMySession,COAP_URI_PATH_OPTION, APP_RESOURCE2_URI_PATH,SizeOfString(APP_RESOURCE2_URI_PATH));
-
-    if (gCoapConfirmable_c == pSession->msgType)
-  {
-    if (gCoapGET_c == pSession->code)
-    {
-      shell_write("'CON' packet received 'GET' with payload: ");
-    }
-    if (gCoapPOST_c == pSession->code)
-    {
-      shell_write("'CON' packet received 'POST' with payload: ");
-    }
-    if (gCoapPUT_c == pSession->code)
-    {
-      shell_write("'CON' packet received 'PUT' with payload: ");
-    }
-    if (gCoapFailure_c!=sessionStatus)
-    {
-      COAP_Send(pSession, gCoapMsgTypeAckSuccessChanged_c, pMySessionPayload, pMyPayloadSize);
-    }
-  }
-
-  else if(gCoapNonConfirmable_c == pSession->msgType)
-  {
-    if (gCoapGET_c == pSession->code)
-    {
-      shell_write("'NON' packet received 'GET' with payload: ");
-    }
-    if (gCoapPOST_c == pSession->code)
-    {
-      shell_write("'NON' packet received 'POST' with payload: ");
-    }
-    if (gCoapPUT_c == pSession->code)
-    {
-      shell_write("'NON' packet received 'PUT' with payload: ");
-    }
-  }
-
-  shell_writeN(pData, dataLen);
-  shell_write("\r\n");
-
-  pMySession -> msgType=gCoapNonConfirmable_c;
-  pMySession -> code= gCoapPOST_c;
-  pMySession -> pCallback =NULL;
-
-  FLib_MemCpy(&pMySession->remoteAddrStorage.ss_addr,&gCoapDestAddress,sizeof(ipAddr_t));
-
-  COAP_Send(pMySession, gCoapMsgTypeNonPost_c, pMySessionPayload, pMyPayloadSize);
-
-  shell_write("'NON' packet sent 'POST' with payload: ");
-  shell_writeN((char*) pMySessionPayload, pMyPayloadSize);
-  shell_write("\r\n");
-}
-
-
-static void APP_CoapResource2Cb
-(
-coapSessionStatus_t sessionStatus,
-void *pData,
-coapSession_t *pSession,
-uint32_t dataLen
-)
-
-{
-  if (gCoapNonConfirmable_c == pSession->msgType)
-  {
-      shell_write("'NON' packet received 'POST' with payload: ");
-      shell_writeN(pData, dataLen);
-      shell_write("\r\n");
-  }
-}
-
 
 /*!*************************************************************************************************
 \private

@@ -197,7 +197,7 @@ taskMsgQueue_t *mpAppThreadMsgQueue = NULL;
 extern bool_t gEnable802154TxLed;
 
 // Variables de EQ2
-static uint8_t g_Counter = 0x30;
+static uint8_t g_Counter = 0;
 
 /* Global Variable to store our TimerID */
 tmrTimerID_t myTimerID = gTmrInvalidTimerID_c;
@@ -212,9 +212,14 @@ static void myTaskTimerCallback(void *param)
 //    shell_printf("\tg_Counter: %u\n\r", g_Counter);	// DEBUG EQ2
 //    shell_refresh();
 
-	if(g_Counter >= 0xF9){
-		g_Counter = 0x31;	// Reiniciamos el contador
+	if(g_Counter >= 201){
+		g_Counter = 1;	// Reiniciamos el contador
 	}
+}
+
+void enteroACadena(unsigned int numero, char *bufer){
+    // Recuerda: u es para un unsigned int
+    sprintf(bufer, "%u", numero);
 }
 
 /*==================================================================================================
@@ -1009,8 +1014,9 @@ uint32_t dataLen
   static uint8_t pMySessionPayload[3]={0x31,0x32,0x33};	// ACK
   static uint32_t pMyPayloadSize=3;
   static uint8_t pMySessionPayloadCounter[3]={0x31,0x32,0x33};	// Counter 0
-  pMySessionPayloadCounter[0] = g_Counter;			// Counter from 1 to 200
-  static uint32_t pMyPayloadSizeCounter=3;
+  unsigned int numero = g_Counter;					// Counter from 1 to 200
+  char cadena[4]; // 11, porque puede medir hasta 10 y necesitamos un adicional para el carácter de terminación
+  static uint32_t pMyPayloadSizeCounter=4;
   coapSession_t *pMySession = NULL;
   char addrStr[INET6_ADDRSTRLEN];					// Source IP address
   pMySession = COAP_OpenSession(mAppCoapInstId);
@@ -1061,6 +1067,8 @@ uint32_t dataLen
   shell_printf("From IPv6 Address: %s\r", addrStr);	// EQ2
   shell_refresh();
 
+  enteroACadena(numero, cadena);
+//  printf("El entero %u se convierte a '%s' como cadena", numero, cadena);
 
   pMySession -> msgType=gCoapNonConfirmable_c;
   pMySession -> code= gCoapPOST_c;
@@ -1068,10 +1076,10 @@ uint32_t dataLen
 
   FLib_MemCpy(&pMySession->remoteAddrStorage.ss_addr,&gCoapDestAddress,sizeof(ipAddr_t));
 
-  COAP_Send(pMySession, gCoapMsgTypeNonPost_c, pMySessionPayloadCounter, pMyPayloadSizeCounter);
+  COAP_Send(pMySession, gCoapMsgTypeNonPost_c, cadena, pMyPayloadSizeCounter);
 
   shell_write("'NON' packet sent 'POST' with payload: ");
-  shell_writeN(pMySessionPayloadCounter, pMyPayloadSizeCounter);
+  shell_writeN(cadena, pMyPayloadSizeCounter);
   shell_write("\r\n\n");
 }
 

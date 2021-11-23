@@ -27,6 +27,19 @@ Include Files
 #include "ip_if_management.h"
 #include "event_manager.h"
 
+/* Headers for Accel from bubble demo */
+#include "fsl_debug_console.h"	// EQ2 bubble demo
+#include "board.h"
+#include "math.h"
+#include "fsl_fxos.h"
+#include "fsl_i2c.h"
+#include "fsl_tpm.h"
+
+#include "clock_config.h"
+#include "pin_mux.h"
+#include "fsl_gpio.h"
+#include "fsl_port.h"
+
 /* Application */
 #include "router_eligible_device_app.h"
 #include "shell_ip.h"
@@ -98,6 +111,29 @@ Private macros
 /*==================================================================================================
 Private type definitions
 ==================================================================================================*/
+/* The TPM instance/channel used for board */
+#define BOARD_TIMER_BASEADDR TPM2	// EQ2 bubble demo
+#define BOARD_FIRST_TIMER_CHANNEL 0U
+#define BOARD_SECOND_TIMER_CHANNEL 1U
+/* Get source clock for TPM driver */
+#define BOARD_TIMER_SOURCE_CLOCK CLOCK_GetFreq(kCLOCK_Osc0ErClk)
+#define TIMER_CLOCK_MODE 1U
+/* I2C source clock */
+#define ACCEL_I2C_CLK_SRC I2C1_CLK_SRC
+#define I2C_BAUDRATE 100000U
+
+#define I2C_RELEASE_SDA_PORT PORTC
+#define I2C_RELEASE_SCL_PORT PORTC
+#define I2C_RELEASE_SDA_GPIO GPIOC
+#define I2C_RELEASE_SDA_PIN 3U
+#define I2C_RELEASE_SCL_GPIO GPIOC
+#define I2C_RELEASE_SCL_PIN 2U
+#define I2C_RELEASE_BUS_COUNT 100U
+
+#define BOARD_ACCEL_I2C_BASEADDR I2C1		// No estaba en board.h
+#define PIN2_IDX 2u   /*!< Pin number for pin 2 in a port */	// No estaba en pin_mux.c
+#define PIN3_IDX 3u   /*!< Pin number for pin 3 in a port */	// No estaba en pin_mux.c
+
 
 /*==================================================================================================
 Private global variables declarations
@@ -198,6 +234,7 @@ extern bool_t gEnable802154TxLed;
 
 // Variables de EQ2
 static uint8_t g_Counter = 0;
+static fxos_handle_t fxosHandle;		// EQ2 bubble demo
 
 /* Global Variable to store our TimerID */
 tmrTimerID_t myTimerID = gTmrInvalidTimerID_c;
@@ -209,8 +246,8 @@ static void myTaskTimerCallback(void *param)
 	// Will have a counter from 1 to 200
 	g_Counter++;
 
-//    shell_printf("\tg_Counter: %u\n\r", g_Counter);	// DEBUG EQ2
-//    shell_refresh();
+	// shell_printf("\tg_Counter: %u\n\r", g_Counter);	// DEBUG EQ2
+	// shell_refresh();
 
 	if(g_Counter >= 201){
 		g_Counter = 1;	// Reiniciamos el contador
@@ -220,6 +257,103 @@ static void myTaskTimerCallback(void *param)
 void enteroACadena(unsigned int numero, char *bufer){
     // Recuerda: u es para un unsigned int
     sprintf(bufer, "%u", numero);
+}
+
+void enterosignadoACadena(unsigned int numero, char *bufer){
+    // Recuerda: u es para un unsigned int
+    sprintf(bufer, "%i", numero);
+}
+
+/*******************************************************************************
+ * Variables
+ ******************************************************************************/
+i2c_master_handle_t g_MasterHandle;	// EQ2 bubble demo
+/* FXOS device address */
+const uint8_t g_accel_address[] = {0x1CU, 0x1DU, 0x1EU, 0x1FU};
+
+/*******************************************************************************
+ * Code
+ ******************************************************************************/
+
+static void i2c_release_bus_delay(void)	// EQ2 bubble demo
+{
+    uint32_t i = 0;
+    for (i = 0; i < I2C_RELEASE_BUS_COUNT; i++)
+    {
+        __NOP();
+    }
+}
+
+void BOARD_I2C_ReleaseBus(void)
+{
+    uint8_t i = 0;
+    gpio_pin_config_t pin_config;
+    port_pin_config_t i2c_pin_config = {0};
+
+    /* Config pin mux as gpio */
+    i2c_pin_config.pullSelect = kPORT_PullUp;
+    i2c_pin_config.mux = kPORT_MuxAsGpio;
+
+    pin_config.pinDirection = kGPIO_DigitalOutput;
+    pin_config.outputLogic = 1U;
+    CLOCK_EnableClock(kCLOCK_PortC);
+    PORT_SetPinConfig(I2C_RELEASE_SCL_PORT, I2C_RELEASE_SCL_PIN, &i2c_pin_config);
+    PORT_SetPinConfig(I2C_RELEASE_SDA_PORT, I2C_RELEASE_SDA_PIN, &i2c_pin_config);
+
+    GPIO_PinInit(I2C_RELEASE_SCL_GPIO, I2C_RELEASE_SCL_PIN, &pin_config);
+    GPIO_PinInit(I2C_RELEASE_SDA_GPIO, I2C_RELEASE_SDA_PIN, &pin_config);
+
+    /* Drive SDA low first to simulate a start */
+    GPIO_WritePinOutput(I2C_RELEASE_SDA_GPIO, I2C_RELEASE_SDA_PIN, 0U);
+    i2c_release_bus_delay();
+
+    /* Send 9 pulses on SCL and keep SDA high */
+    for (i = 0; i < 9; i++)
+    {
+        GPIO_WritePinOutput(I2C_RELEASE_SCL_GPIO, I2C_RELEASE_SCL_PIN, 0U);
+        i2c_release_bus_delay();
+
+        GPIO_WritePinOutput(I2C_RELEASE_SDA_GPIO, I2C_RELEASE_SDA_PIN, 1U);
+        i2c_release_bus_delay();
+
+        GPIO_WritePinOutput(I2C_RELEASE_SCL_GPIO, I2C_RELEASE_SCL_PIN, 1U);
+        i2c_release_bus_delay();
+        i2c_release_bus_delay();
+    }
+
+    /* Send stop */
+    GPIO_WritePinOutput(I2C_RELEASE_SCL_GPIO, I2C_RELEASE_SCL_PIN, 0U);
+    i2c_release_bus_delay();
+
+    GPIO_WritePinOutput(I2C_RELEASE_SDA_GPIO, I2C_RELEASE_SDA_PIN, 0U);
+    i2c_release_bus_delay();
+
+    GPIO_WritePinOutput(I2C_RELEASE_SCL_GPIO, I2C_RELEASE_SCL_PIN, 1U);
+    i2c_release_bus_delay();
+
+    GPIO_WritePinOutput(I2C_RELEASE_SDA_GPIO, I2C_RELEASE_SDA_PIN, 1U);
+    i2c_release_bus_delay();
+}
+
+void BOARD_I2C_ConfigurePins(void) {	// No estaba en pin_mux.c
+  CLOCK_EnableClock(kCLOCK_PortC);                           /* Port C Clock Gate Control: Clock enabled */
+
+  const port_pin_config_t portc2_pin38_config = {
+    kPORT_PullUp,                                            /* Internal pull-up resistor is enabled */
+    kPORT_FastSlewRate,                                      /* Fast slew rate is configured */
+    kPORT_PassiveFilterDisable,                              /* Passive filter is disabled */
+    kPORT_LowDriveStrength,                                  /* Low drive strength is configured */
+    kPORT_MuxAlt3,                                           /* Pin is configured as I2C1_SCL */
+  };
+  PORT_SetPinConfig(PORTC, PIN2_IDX, &portc2_pin38_config);  /* PORTC2 (pin 38) is configured as I2C1_SCL */
+  const port_pin_config_t portc3_pin39_config = {
+    kPORT_PullUp,                                            /* Internal pull-up resistor is enabled */
+    kPORT_FastSlewRate,                                      /* Fast slew rate is configured */
+    kPORT_PassiveFilterDisable,                              /* Passive filter is disabled */
+    kPORT_LowDriveStrength,                                  /* Low drive strength is configured */
+    kPORT_MuxAlt3,                                           /* Pin is configured as I2C1_SDA */
+  };
+  PORT_SetPinConfig(PORTC, PIN3_IDX, &portc3_pin39_config);  /* PORTC3 (pin 39) is configured as I2C1_SDA */
 }
 
 /*==================================================================================================
@@ -234,6 +368,16 @@ void APP_Init
     void
 )
 {
+	/* Initialize Accelerometer sensor */
+    i2c_master_config_t i2cConfig;	// EQ2 bubble demo
+    uint8_t sensorRange = 0;
+    uint8_t dataScale = 0;
+    uint32_t i2cSourceClock;
+    uint8_t i = 0;
+    uint8_t regResult = 0;
+    uint8_t array_addr_size = 0;
+    bool foundDevice = false;
+
     /* Initialize pointer to application task message queue */
     mpAppThreadMsgQueue = &appThreadMsgQueue;
 
@@ -259,6 +403,69 @@ void APP_Init
     {
         /* Initialize CoAP demo */
         APP_InitCoapDemo();
+
+        /* Board pin, clock, debug console init */
+        BOARD_InitPins();		// EQ2 bubble demo
+        BOARD_BootClockRUN();
+        BOARD_I2C_ReleaseBus();
+        BOARD_I2C_ConfigurePins();
+        // BOARD_InitDebugConsole();
+
+        i2cSourceClock = CLOCK_GetFreq(ACCEL_I2C_CLK_SRC);
+        fxosHandle.base = BOARD_ACCEL_I2C_BASEADDR;
+        fxosHandle.i2cHandle = &g_MasterHandle;
+
+        I2C_MasterGetDefaultConfig(&i2cConfig);
+        I2C_MasterInit(BOARD_ACCEL_I2C_BASEADDR, &i2cConfig, i2cSourceClock);
+        I2C_MasterTransferCreateHandle(BOARD_ACCEL_I2C_BASEADDR, &g_MasterHandle, NULL, NULL);
+
+        /* Find sensor devices */
+        array_addr_size = sizeof(g_accel_address) / sizeof(g_accel_address[0]);
+        for (i = 0; i < array_addr_size; i++)
+        {
+            fxosHandle.xfer.slaveAddress = g_accel_address[i];
+            if (FXOS_ReadReg(&fxosHandle, WHO_AM_I_REG, &regResult, 1) == kStatus_Success)
+            {
+                foundDevice = true;
+                break;
+            }
+            if ((i == (array_addr_size - 1)) && (!foundDevice))
+            {
+                PRINTF("\r\nDo not found sensor device\r\n");
+                while (1)
+                {
+                };
+            }
+        }
+
+        /* Init accelerometer sensor */
+        if (FXOS_Init(&fxosHandle) != kStatus_Success)
+        {
+            // return -1;
+        }
+        /* Get sensor range */
+        if (FXOS_ReadReg(&fxosHandle, XYZ_DATA_CFG_REG, &sensorRange, 1) != kStatus_Success)
+        {
+            // return -1;
+        }
+        if (sensorRange == 0x00)
+        {
+            dataScale = 2U;
+        }
+        else if (sensorRange == 0x01)
+        {
+            dataScale = 4U;
+        }
+        else if (sensorRange == 0x10)
+        {
+            dataScale = 8U;
+        }
+        else
+        {
+        }
+
+        /* Print a note to terminal */
+        shell_write("\r\nWelcome to BUBBLE example\r\n");
 
 #if USE_TEMPERATURE_SENSOR
         /* Initialize Temperature sensor/ADC module*/
@@ -1013,7 +1220,7 @@ uint32_t dataLen
 {
   static uint8_t pMySessionPayload[3]={0x31,0x32,0x33};	// ACK
   static uint32_t pMyPayloadSize=3;
-  static uint8_t pMySessionPayloadCounter[3]={0x31,0x32,0x33};	// Counter 0
+  // static uint8_t pMySessionPayloadCounter[3]={0x31,0x32,0x33};	// Counter 0
   unsigned int numero = g_Counter;					// Counter from 1 to 200
   char cadena[4]; // 11, porque puede medir hasta 10 y necesitamos un adicional para el carácter de terminación
   static uint32_t pMyPayloadSizeCounter=4;
@@ -1109,10 +1316,113 @@ uint32_t dataLen
 )
 
 {
-  if (gCoapNonConfirmable_c == pSession->msgType)
-  {
+  static uint8_t pMySessionPayload[3]={0x31,0x32,0x33};
+  static uint32_t pMyPayloadSize=8;
+  char addrStr[INET6_ADDRSTRLEN];					// Source IP address
+  unsigned int numero = 0;		// Raw accelerometer data for x, y, z
+  char cadena[8]; // 11, porque puede medir hasta 10 y necesitamos un adicional para el carácter de terminación
+  coapSession_t *pMySession = NULL;
+  pMySession = COAP_OpenSession(mAppCoapInstId);
+  COAP_AddOptionToList(pMySession,COAP_URI_PATH_OPTION, APP_ACCEL_URI_PATH,SizeOfString(APP_ACCEL_URI_PATH));
 
-  }
+  fxos_data_t sensorData;	// EQ2 bubble demo
+  int16_t xData, yData, zData;
+
+  if (gCoapConfirmable_c == pSession->msgType)
+	{
+	  if (gCoapGET_c == pSession->code)
+	  {
+		shell_write("'CON' packet received 'GET' with payload: ");
+	  }
+	  if (gCoapPOST_c == pSession->code)
+	  {
+		shell_write("'CON' packet received 'POST' with payload: ");
+	  }
+	  if (gCoapPUT_c == pSession->code)
+	  {
+		shell_write("'CON' packet received 'PUT' with payload: ");
+	  }
+	  if (gCoapFailure_c!=sessionStatus)
+	  {
+		COAP_Send(pSession, gCoapMsgTypeAckSuccessChanged_c, pMySessionPayload, pMyPayloadSize);
+	  }
+	}
+
+	else if(gCoapNonConfirmable_c == pSession->msgType)
+	{
+	  if (gCoapGET_c == pSession->code)
+	  {
+		shell_write("'NON' packet received 'GET' with payload: ");
+	  }
+	  if (gCoapPOST_c == pSession->code)
+	  {
+		shell_write("'NON' packet received 'POST' with payload: ");
+	  }
+	  if (gCoapPUT_c == pSession->code)
+	  {
+		shell_write("'NON' packet received 'PUT' with payload: ");
+	  }
+	}
+
+	shell_writeN(pData, dataLen);	// payload EQ2
+	shell_write("\r\n");
+
+	// Print in shell the IP address of the requester
+	ntop(AF_INET6, (ipAddr_t*)&pSession->remoteAddrStorage.ss_addr, addrStr, INET6_ADDRSTRLEN);
+	shell_write("\r");
+	shell_printf("From IPv6 Address: %s\r", addrStr);	// EQ2
+	shell_refresh();
+
+    /* Get new accelerometer data. */
+    if (FXOS_ReadSensorData(&fxosHandle, &sensorData) != kStatus_Success)
+    {
+        // return -1;
+    }
+
+    /* Get the X and Y data from the sensor data structure in 14 bit left format data*/
+    xData = (int16_t)((uint16_t)((uint16_t)sensorData.accelXMSB << 8) | (uint16_t)sensorData.accelXLSB) / 4U;
+    yData = (int16_t)((uint16_t)((uint16_t)sensorData.accelYMSB << 8) | (uint16_t)sensorData.accelYLSB) / 4U;
+    zData = (int16_t)((uint16_t)((uint16_t)sensorData.accelZMSB << 8) | (uint16_t)sensorData.accelZLSB) / 4U;
+
+    /* Print out the raw accelerometer data. */
+    //    PRINTF("x= %6d y = %6d z = %6d\r\n", xData, yData, zdata);	// DEBUG
+
+    numero = xData;
+    enterosignadoACadena(numero, cadena);
+
+	pMySession -> msgType=gCoapNonConfirmable_c;
+	pMySession -> code= gCoapPOST_c;
+	pMySession -> pCallback =NULL;
+
+	FLib_MemCpy(&pMySession->remoteAddrStorage.ss_addr,&gCoapDestAddress,sizeof(ipAddr_t));
+
+	COAP_Send(pMySession, gCoapMsgTypeNonPost_c, cadena, pMyPayloadSize);
+
+	shell_write("'NON' packet sent 'POST' with payload: ");
+	shell_writeN(cadena, pMyPayloadSize);
+	shell_write("\r\n\n");
+
+	//////////////////////////////////////////////////////
+
+    numero = yData;
+    enterosignadoACadena(numero, cadena);
+
+	COAP_Send(pMySession, gCoapMsgTypeNonPost_c, cadena, pMyPayloadSize);
+
+	shell_write("'NON' packet sent 'POST' with payload: ");
+	shell_writeN(cadena, pMyPayloadSize);
+	shell_write("\r\n\n");
+
+	//////////////////////////////////////////////////////
+
+    numero = zData;
+    enterosignadoACadena(numero, cadena);
+
+	COAP_Send(pMySession, gCoapMsgTypeNonPost_c, cadena, pMyPayloadSize);
+
+	shell_write("'NON' packet sent 'POST' with payload: ");
+	shell_writeN(cadena, pMyPayloadSize);
+	shell_write("\r\n\n");
 }
 
 /*!*************************************************************************************************

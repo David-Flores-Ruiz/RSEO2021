@@ -475,8 +475,8 @@ void APP_Commissioning_Handler
             App_UpdateStateLeds(gDeviceState_FactoryDefault_c);
             break;
         case gThrEv_MeshCop_JoinerAccepted_c:
-        	shell_write("\rRouter 2 joins the network\n\r");	// DEBUG EQ2
-        	shell_refresh();
+//        	shell_write("\rRouter 2 joins the network\n\r");	// DEBUG EQ2
+//        	shell_refresh();
         	shell_write("\rStart a timer 5 sec, to request the counter\n\r");	// EQ2
         	shell_refresh();
         	myTimerID = TMR_AllocateTimer();
@@ -943,62 +943,48 @@ uint32_t dataLen
 )
 
 {
-  static uint8_t pMySessionPayload[3]={0x31,0x32,0x33};
-  static uint32_t pMyPayloadSize=3;
-  coapSession_t *pMySession = NULL;
-  pMySession = COAP_OpenSession(mAppCoapInstId);
-  COAP_AddOptionToList(pMySession,COAP_URI_PATH_OPTION, APP_RESOURCE2_URI_PATH,SizeOfString(APP_RESOURCE2_URI_PATH));
 
-    if (gCoapConfirmable_c == pSession->msgType)
+  char addrStr[INET6_ADDRSTRLEN];				// Source IP address
+
+  g_Counter++;
+
+  if (gCoapNonConfirmable_c == pSession->msgType)
   {
-    if (gCoapGET_c == pSession->code)
-    {
-      shell_write("'CON' packet received 'GET' with payload: ");
-    }
-    if (gCoapPOST_c == pSession->code)
-    {
-      shell_write("'CON' packet received 'POST' with payload: ");
-    }
-    if (gCoapPUT_c == pSession->code)
-    {
-      shell_write("'CON' packet received 'PUT' with payload: ");
-    }
-    if (gCoapFailure_c!=sessionStatus)
-    {
-      COAP_Send(pSession, gCoapMsgTypeAckSuccessChanged_c, pMySessionPayload, pMyPayloadSize);
-    }
+	  switch (g_Counter) {
+	  case 1:
+		  // Print in shell the X accelerometer data
+		  shell_write("X= ");
+		  shell_writeN(pData, dataLen);
+		  shell_write("\r\n");
+		  break;
+	  case 2:
+		  // Print in shell the Y accelerometer data
+		  shell_write("Y= ");
+		  shell_writeN(pData, dataLen);
+		  shell_write("\r\n");
+		  break;
+	  case 3:
+		  // Print in shell the Z accelerometer data
+		  shell_write("Z= ");
+		  shell_writeN(pData, dataLen);
+		  shell_write("\r\n");
+		  break;
+		default:
+			shell_write("Failing receiving receive the 3 accelerometer raw data (X, Y, Z)");
+			shell_write("\r\n");
+			break;
+	}
   }
 
-  else if(gCoapNonConfirmable_c == pSession->msgType)
-  {
-    if (gCoapGET_c == pSession->code)
-    {
-      shell_write("'NON' packet received 'GET' with payload: ");
-    }
-    if (gCoapPOST_c == pSession->code)
-    {
-      shell_write("'NON' packet received 'POST' with payload: ");
-    }
-    if (gCoapPUT_c == pSession->code)
-    {
-      shell_write("'NON' packet received 'PUT' with payload: ");
-    }
-  }
+  // Print in shell the source IP
+  ntop(AF_INET6, (ipAddr_t*)&pSession->remoteAddrStorage.ss_addr, addrStr, INET6_ADDRSTRLEN);
+  shell_write("\r");
+  shell_printf("From IPv6 Address: %s\n\n\r", addrStr);	// EQ2
+  shell_refresh();
 
-  shell_writeN(pData, dataLen);
-  shell_write("\r\n");
-
-  pMySession -> msgType=gCoapNonConfirmable_c;
-  pMySession -> code= gCoapPOST_c;
-  pMySession -> pCallback =NULL;
-
-  FLib_MemCpy(&pMySession->remoteAddrStorage.ss_addr,&gCoapDestAddress,sizeof(ipAddr_t));
-
-  COAP_Send(pMySession, gCoapMsgTypeNonPost_c, pMySessionPayload, pMyPayloadSize);
-
-  shell_write("'NON' packet sent 'POST' with payload: ");
-  shell_writeN((char*) pMySessionPayload, pMyPayloadSize);
-  shell_write("\r\n");
+  if(g_Counter >= 3){
+		g_Counter = 0;	// To receive the 3 accelerometer raw data (X, Y, Z)
+	}
 }
 
 static void APP_CoapTeam2Cb

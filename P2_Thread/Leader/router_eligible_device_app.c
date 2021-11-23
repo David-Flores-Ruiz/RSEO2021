@@ -1323,7 +1323,7 @@ uint32_t dataLen
   char cadena[8]; // 11, porque puede medir hasta 10 y necesitamos un adicional para el carácter de terminación
   coapSession_t *pMySession = NULL;
   pMySession = COAP_OpenSession(mAppCoapInstId);
-  COAP_AddOptionToList(pMySession,COAP_URI_PATH_OPTION, APP_ACCEL_URI_PATH,SizeOfString(APP_ACCEL_URI_PATH));
+  COAP_AddOptionToList(pMySession,COAP_URI_PATH_OPTION, APP_RESOURCE2_URI_PATH,SizeOfString(APP_RESOURCE2_URI_PATH));
 
   fxos_data_t sensorData;	// EQ2 bubble demo
   int16_t xData, yData, zData;
@@ -1397,7 +1397,6 @@ uint32_t dataLen
 	FLib_MemCpy(&pMySession->remoteAddrStorage.ss_addr,&gCoapDestAddress,sizeof(ipAddr_t));
 
 	COAP_Send(pMySession, gCoapMsgTypeNonPost_c, cadena, pMyPayloadSize);
-
 	shell_write("'NON' packet sent 'POST' with payload: ");
 	shell_writeN(cadena, pMyPayloadSize);
 	shell_write("\r\n\n");
@@ -1408,7 +1407,6 @@ uint32_t dataLen
     enterosignadoACadena(numero, cadena);
 
 	COAP_Send(pMySession, gCoapMsgTypeNonPost_c, cadena, pMyPayloadSize);
-
 	shell_write("'NON' packet sent 'POST' with payload: ");
 	shell_writeN(cadena, pMyPayloadSize);
 	shell_write("\r\n\n");
@@ -1419,7 +1417,6 @@ uint32_t dataLen
     enterosignadoACadena(numero, cadena);
 
 	COAP_Send(pMySession, gCoapMsgTypeNonPost_c, cadena, pMyPayloadSize);
-
 	shell_write("'NON' packet sent 'POST' with payload: ");
 	shell_writeN(cadena, pMyPayloadSize);
 	shell_write("\r\n\n");
